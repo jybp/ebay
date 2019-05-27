@@ -90,7 +90,7 @@ func (c *Client) NewRequest(method, url string, opts ...Opt) (*http.Request, err
 	return req, nil
 }
 
-// Do sends an API reauest and stores the JSON decoded value into v.
+// Do sends an API request and stores the JSON decoded value into v.
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error {
 	resp, err := c.client.Do(req.WithContext(ctx))
 	if err != nil {

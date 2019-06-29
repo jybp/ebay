@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/jybp/ebay"
@@ -65,4 +66,16 @@ func TestCheckResponse(t *testing.T) {
 	assert.Equal(t, []string{"outputRefId"}, err.Errors[0].OuputRefIds)
 	assert.Equal(t, "itemId", err.Errors[0].Parameters[0].Name)
 	assert.Equal(t, "2200077988|0", err.Errors[0].Parameters[0].Value)
+}
+
+// setup sets up a test HTTP server
+func setup(t *testing.T) (client *ebay.Client, mux *http.ServeMux, teardown func()) {
+	mux = http.NewServeMux()
+	server := httptest.NewServer(mux)
+	var err error
+	client, err = ebay.NewCustomClient(nil, server.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client, mux, server.Close
 }

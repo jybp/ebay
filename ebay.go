@@ -3,6 +3,7 @@ package ebay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -76,6 +77,9 @@ type Opt func(*http.Request)
 // NewRequest creates an API request.
 // url should always be specified without a preceding slash.
 func (c *Client) NewRequest(method, url string, opts ...Opt) (*http.Request, error) {
+	if strings.HasPrefix(url, "/") {
+		return nil, errors.New("url should always be specified without a preceding slash")
+	}
 	u, err := c.baseURL.Parse(url)
 	if err != nil {
 		return nil, err

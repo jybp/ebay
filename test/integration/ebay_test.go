@@ -1,4 +1,5 @@
 // +build integration
+
 package integration
 
 import (
@@ -28,8 +29,8 @@ func init() {
 	client = ebay.NewSandboxClient(conf.Client(context.Background()))
 }
 
+// https://developer.ebay.com/my/api_test_tool?index=0&api=browse&call=item_summary_search__GET&variation=json
 func TestAuthorization(t *testing.T) {
-	// https://developer.ebay.com/my/api_test_tool?index=0&api=browse&call=item_summary_search__GET&variation=json
 	req, err := client.NewRequest("GET", "buy/browse/v1/item_summary/search?q=test")
 	if err != nil {
 		t.Fatal(err)

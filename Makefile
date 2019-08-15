@@ -4,4 +4,4 @@ test:
 
 .PHONY: integration
 integration:
-	go test -tags integration -count=1 -v -run "GetItemByLegacyID" ./...
+	go test -count=1 -v -run "Auction" ./test/integration -integration=true

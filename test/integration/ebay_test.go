@@ -1,20 +1,25 @@
-// +build integration
-
 package integration
 
 import (
 	"context"
+	"flag"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/jybp/ebay"
 	"github.com/jybp/ebay/clientcredentials"
 )
 
-var client *ebay.Client
+var (
+	integration bool
+	client      *ebay.Client
+)
 
 func init() {
+	flag.BoolVar(&integration, "integration", false, "run integration tests")
 	clientID := os.Getenv("SANDBOX_CLIENT_ID")
 	clientSecret := os.Getenv("SANDBOX_CLIENT_SECRET")
 	if clientID == "" || clientSecret == "" {
@@ -29,29 +34,37 @@ func init() {
 	client = ebay.NewSandboxClient(conf.Client(context.Background()))
 }
 
-// https://developer.ebay.com/my/api_test_tool?index=0&api=browse&call=item_summary_search__GET&variation=json
-func TestAuthorization(t *testing.T) {
-	req, err := client.NewRequest("GET", "buy/browse/v1/item_summary/search?q=test")
-	if err != nil {
-		t.Fatal(err)
+func TestAuction(t *testing.T) {
+	if !integration {
+		t.SkipNow()
 	}
-	into := map[string]interface{}{}
-	err = client.Do(context.Background(), req, &into)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if testing.Verbose() {
-		t.Log(into)
-	}
-}
 
-// https://developer.ebay.com/my/api_test_tool?index=0&api=browse&call=item_summary_search__GET&variation=json
-func TestGetItemByLegacyID(t *testing.T) {
-	it, err := client.Buy.Browse.GetItemByLegacyID(context.Background(), "110436963416")
+	// Manually create an auction in the sandbox and copy/paste the url:
+	const url = "https://www.sandbox.ebay.com/itm/110439278158"
+
+	ctx := context.Background()
+	lit, err := client.Buy.Browse.GetItemByLegacyID(ctx, url[strings.LastIndex(url, "/")+1:])
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
+	}
+	it, err := client.Buy.Browse.GetItem(ctx, lit.ItemID)
+	if err != nil {
+		t.Fatalf("%+v", err)
 	}
 	if testing.Verbose() {
-		t.Logf("%+v", it)
+		t.Logf("item: %+v", it)
 	}
+	isAuction := false
+	for _, opt := range it.BuyingOptions {
+		if opt == ebay.BrowseBuyingOptionAuction {
+			isAuction = true
+		}
+	}
+	if !isAuction {
+		t.Fatalf("item %s is not an auction. BuyingOptions are: %+v", it.ItemID, it.BuyingOptions)
+	}
+	if time.Now().UTC().After(it.ItemEndDate) {
+		t.Fatalf("item %s end date has been reached. ItemEndDate is: %s", it.ItemID, it.ItemEndDate.String())
+	}
+	t.Logf("item %s UniqueBidderCount:%d minimumBidPrice: %+v currentPriceToBid: %+v", it.ItemID, it.UniqueBidderCount, it.MinimumPriceToBid, it.CurrentBidPrice)
 }

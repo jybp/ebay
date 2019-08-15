@@ -3,18 +3,17 @@ package ebay
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
 	baseURL        = "https://api.ebay.com/"
 	sandboxBaseURL = "https://api.sandbox.ebay.com/"
-
-	headerEndUserCtx = "X-EBAY-C-ENDUSERCTX"
 )
 
 // BuyAPI regroups the eBay Buy APIs.
@@ -22,6 +21,7 @@ const (
 // eBay API docs: https://developer.ebay.com/api-docs/buy/static/buy-landing.html
 type BuyAPI struct {
 	Browse *BrowseService
+	Offer  *OfferService
 }
 
 // Client manages communication with the eBay API.
@@ -63,6 +63,7 @@ func newClient(httpclient *http.Client, baseURL string) *Client {
 	c := &Client{client: httpclient, baseURL: url}
 	c.Buy = BuyAPI{
 		Browse: (*BrowseService)(&service{c}),
+		Offer:  (*OfferService)(&service{c}),
 	}
 	return c
 }
@@ -82,11 +83,11 @@ func (c *Client) NewRequest(method, url string, opts ...Opt) (*http.Request, err
 	}
 	u, err := c.baseURL.Parse(url)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	for _, opt := range opts {
 		opt(req)
@@ -98,7 +99,7 @@ func (c *Client) NewRequest(method, url string, opts ...Opt) (*http.Request, err
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error {
 	resp, err := c.client.Do(req.WithContext(ctx))
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer resp.Body.Close()
 	if err := CheckResponse(resp); err != nil {
@@ -107,7 +108,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error
 	if v == nil {
 		return nil
 	}
-	return json.NewDecoder(resp.Body).Decode(v)
+	return errors.WithStack(json.NewDecoder(resp.Body).Decode(v))
 }
 
 // An ErrorData reports one or more errors caused by an API request.

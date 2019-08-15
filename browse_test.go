@@ -28,11 +28,10 @@ func TestGetItem(t *testing.T) {
 	defer teardown()
 
 	mux.HandleFunc("/buy/browse/v1/item/v1|202117468662|0", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"itemId": "v1|202117468662|0", "title": "%s"}`, r.URL.Query().Get("fieldgroups"))
+		fmt.Fprintf(w, `{"itemId": "%s"}`, r.URL.Query().Get("fieldgroups"))
 	})
 
-	item, err := client.Buy.Browse.GetItem(context.Background(), "v1|202117468662|0", "COMPACT")
+	item, err := client.Buy.Browse.GetCompactItem(context.Background(), "v1|202117468662|0")
 	assert.Nil(t, err)
-	assert.Equal(t, "v1|202117468662|0", item.ItemID)
-	assert.Equal(t, "COMPACT", item.Title)
+	assert.Equal(t, "COMPACT", item.ItemID)
 }

@@ -44,3 +44,14 @@ func TestAuthorization(t *testing.T) {
 		t.Log(into)
 	}
 }
+
+// https://developer.ebay.com/my/api_test_tool?index=0&api=browse&call=item_summary_search__GET&variation=json
+func TestGetItemByLegacyID(t *testing.T) {
+	it, err := client.Buy.Browse.GetItemByLegacyID(context.Background(), "110436963416")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if testing.Verbose() {
+		t.Logf("%+v", it)
+	}
+}

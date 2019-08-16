@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-// BrowseService handles communication with the Browse API
+// BrowseService handles communication with the Browse API.
 //
 // eBay API docs: https://developer.ebay.com/api-docs/buy/browse/overview.html
 type BrowseService service
 
-// Valid values of the "buyingOptions" array for items.
+// Valid values for the "buyingOptions" item field.
 const (
 	BrowseBuyingOptionAuction    = "AUCTION"
 	BrowseBuyingOptionFixedPrice = "FIXED_PRICE"

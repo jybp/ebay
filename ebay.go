@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -102,7 +103,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error
 		return errors.WithStack(err)
 	}
 	defer resp.Body.Close()
-	if err := CheckResponse(resp); err != nil {
+	if err := CheckResponse(req, resp); err != nil {
 		return err
 	}
 	if v == nil {
@@ -111,7 +112,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error
 	return errors.WithStack(json.NewDecoder(resp.Body).Decode(v))
 }
 
-// An ErrorData reports one or more errors caused by an API request.
+// ErrorData reports one or more errors caused by an API request.
 //
 // eBay API docs: https://developer.ebay.com/api-docs/static/handling-error-messages.html
 type ErrorData struct {
@@ -129,20 +130,21 @@ type ErrorData struct {
 			Value string `json:"value,omitempty"`
 		} `json:"parameters,omitempty"`
 	} `json:"errors,omitempty"`
-	Response *http.Response
+	Response    *http.Response
+	RequestDump string
 }
 
 func (e *ErrorData) Error() string {
-	return fmt.Sprintf("%s %s: %d %+v", e.Response.Request.Method, e.Response.Request.URL,
-		e.Response.StatusCode, e.Errors)
+	return fmt.Sprintf("%d %s: %+v", e.Response.StatusCode, e.RequestDump, e.Errors)
 }
 
 // CheckResponse checks the API response for errors, and returns them if present.
-func CheckResponse(resp *http.Response) error {
+func CheckResponse(req *http.Request, resp *http.Response) error {
 	if s := resp.StatusCode; 200 <= s && s < 300 {
 		return nil
 	}
-	errorData := &ErrorData{Response: resp}
+	dump, _ := httputil.DumpRequest(req, true)
+	errorData := &ErrorData{Response: resp, RequestDump: string(dump)}
 	_ = json.NewDecoder(resp.Body).Decode(errorData)
 	return errorData
 }

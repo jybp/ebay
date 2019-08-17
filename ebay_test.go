@@ -10,15 +10,28 @@ import (
 	"testing"
 
 	"github.com/jybp/ebay"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
+
+// setup sets up a test HTTP server.
+func setup(t *testing.T) (client *ebay.Client, mux *http.ServeMux, teardown func()) {
+	mux = http.NewServeMux()
+	server := httptest.NewServer(mux)
+	var err error
+	client, err = ebay.NewCustomClient(nil, server.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client, mux, server.Close
+}
 
 func TestNewRequest(t *testing.T) {
 	testOpt := func(r *http.Request) {
 		r.URL.RawQuery = "q=1"
 	}
 	client, _ := ebay.NewCustomClient(nil, "https://api.ebay.com/")
-	r, _ := client.NewRequest(http.MethodPost, "test", testOpt)
+	r, _ := client.NewRequest(http.MethodPost, "test", nil, testOpt)
 	assert.Equal(t, "https://api.ebay.com/test?q=1", fmt.Sprint(r.URL))
 	assert.Equal(t, http.MethodPost, r.Method)
 }
@@ -69,14 +82,29 @@ func TestCheckResponse(t *testing.T) {
 	assert.Equal(t, "2200077988|0", err.Errors[0].Parameters[0].Value)
 }
 
-// setup sets up a test HTTP server
-func setup(t *testing.T) (client *ebay.Client, mux *http.ServeMux, teardown func()) {
-	mux = http.NewServeMux()
-	server := httptest.NewServer(mux)
-	var err error
-	client, err = ebay.NewCustomClient(nil, server.URL+"/")
-	if err != nil {
-		t.Fatal(err)
+func TestIsErrorMatches(t *testing.T) {
+	var err error = &ebay.ErrorData{
+		Errors: []ebay.Error{
+			ebay.Error{ErrorID: 1},
+		},
 	}
-	return client, mux, server.Close
+	assert.True(t, ebay.IsError(err, 1, 2, 3))
+}
+
+func TestIsErrorNoMatches(t *testing.T) {
+	var err error = &ebay.ErrorData{
+		Errors: []ebay.Error{
+			ebay.Error{ErrorID: 4},
+		},
+	}
+	assert.False(t, ebay.IsError(err, 1, 2, 3))
+}
+
+func TestIsErrorWrongType(t *testing.T) {
+	var err error = errors.New("test")
+	assert.False(t, ebay.IsError(err, 1, 2, 3))
+}
+
+func TestIsErrorNil(t *testing.T) {
+	assert.False(t, ebay.IsError(nil, 1, 2, 3))
 }

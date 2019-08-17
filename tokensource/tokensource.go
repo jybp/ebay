@@ -20,7 +20,6 @@ func New(base oauth2.TokenSource) *TokenSource {
 func (ts *TokenSource) Token() (*oauth2.Token, error) {
 	t, err := ts.base.Token()
 	if t != nil {
-		print("new token: " + t.AccessToken + "\n") // TODO remove
 		t.TokenType = "Bearer"
 	}
 	return t, err

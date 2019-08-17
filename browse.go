@@ -160,7 +160,7 @@ type LegacyItem struct {
 // eBay API docs: https://developer.ebay.com/api-docs/buy/browse/resources/item/methods/getItemByLegacyId
 func (s *BrowseService) GetItemByLegacyID(ctx context.Context, itemLegacyID string, opts ...Opt) (CompactItem, error) {
 	u := fmt.Sprintf("buy/browse/v1/item/get_item_by_legacy_id?legacy_item_id=%s", itemLegacyID)
-	req, err := s.client.NewRequest(http.MethodGet, u, opts...)
+	req, err := s.client.NewRequest(http.MethodGet, u, nil, opts...)
 	if err != nil {
 		return CompactItem{}, err
 	}
@@ -190,7 +190,7 @@ type CompactItem struct {
 // eBay API docs: https://developer.ebay.com/api-docs/buy/browse/resources/item/methods/getItem
 func (s *BrowseService) GetCompactItem(ctx context.Context, itemID string, opts ...Opt) (CompactItem, error) {
 	u := fmt.Sprintf("buy/browse/v1/item/%s?fieldgroups=COMPACT", itemID)
-	req, err := s.client.NewRequest(http.MethodGet, u, opts...)
+	req, err := s.client.NewRequest(http.MethodGet, u, nil, opts...)
 	if err != nil {
 		return CompactItem{}, err
 	}
@@ -368,7 +368,7 @@ type Item struct {
 // eBay API docs: https://developer.ebay.com/api-docs/buy/browse/resources/item/methods/getItem
 func (s *BrowseService) GetItem(ctx context.Context, itemID string, opts ...Opt) (Item, error) {
 	u := fmt.Sprintf("buy/browse/v1/item/%s?fieldgroups=PRODUCT", itemID)
-	req, err := s.client.NewRequest(http.MethodGet, u, opts...)
+	req, err := s.client.NewRequest(http.MethodGet, u, nil, opts...)
 	if err != nil {
 		return Item{}, err
 	}

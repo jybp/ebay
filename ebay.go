@@ -1,9 +1,11 @@
 package ebay
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -78,7 +80,7 @@ type Opt func(*http.Request)
 
 // NewRequest creates an API request.
 // url should always be specified without a preceding slash.
-func (c *Client) NewRequest(method, url string, opts ...Opt) (*http.Request, error) {
+func (c *Client) NewRequest(method, url string, body interface{}, opts ...Opt) (*http.Request, error) {
 	if strings.HasPrefix(url, "/") {
 		return nil, errors.New("url should always be specified without a preceding slash")
 	}
@@ -86,7 +88,16 @@ func (c *Client) NewRequest(method, url string, opts ...Opt) (*http.Request, err
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	req, err := http.NewRequest(method, u.String(), nil)
+	var buf io.ReadWriter
+	if body != nil {
+		buf = new(bytes.Buffer)
+		enc := json.NewEncoder(buf)
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(body); err != nil {
+			return nil, err
+		}
+	}
+	req, err := http.NewRequest(method, u.String(), buf)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -112,30 +123,36 @@ func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error
 	return errors.WithStack(json.NewDecoder(resp.Body).Decode(v))
 }
 
-// ErrorData reports one or more errors caused by an API request.
+// Error describes one error caused by an eBay API request.
+//
+// eBay API docs: https://developer.ebay.com/api-docs/static/handling-error-messages.html
+type Error struct {
+	ErrorID     int      `json:"errorId,omitempty"`
+	Domain      string   `json:"domain,omitempty"`
+	SubDomain   string   `json:"subDomain,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	Message     string   `json:"message,omitempty"`
+	LongMessage string   `json:"longMessage,omitempty"`
+	InputRefIds []string `json:"inputRefIds,omitempty"`
+	OuputRefIds []string `json:"outputRefIds,omitempty"`
+	Parameters  []struct {
+		Name  string `json:"name,omitempty"`
+		Value string `json:"value,omitempty"`
+	} `json:"parameters,omitempty"`
+}
+
+// ErrorData describes one or more errors caused by an eBay API request.
 //
 // eBay API docs: https://developer.ebay.com/api-docs/static/handling-error-messages.html
 type ErrorData struct {
-	Errors []struct {
-		ErrorID     int      `json:"errorId,omitempty"`
-		Domain      string   `json:"domain,omitempty"`
-		SubDomain   string   `json:"subDomain,omitempty"`
-		Category    string   `json:"category,omitempty"`
-		Message     string   `json:"message,omitempty"`
-		LongMessage string   `json:"longMessage,omitempty"`
-		InputRefIds []string `json:"inputRefIds,omitempty"`
-		OuputRefIds []string `json:"outputRefIds,omitempty"`
-		Parameters  []struct {
-			Name  string `json:"name,omitempty"`
-			Value string `json:"value,omitempty"`
-		} `json:"parameters,omitempty"`
-	} `json:"errors,omitempty"`
-	Response    *http.Response
-	RequestDump string
+	Errors []Error `json:"errors,omitempty"`
+
+	response    *http.Response
+	requestDump string
 }
 
 func (e *ErrorData) Error() string {
-	return fmt.Sprintf("%d %s: %+v", e.Response.StatusCode, e.RequestDump, e.Errors)
+	return fmt.Sprintf("%d %s: %+v", e.response.StatusCode, e.requestDump, e.Errors)
 }
 
 // CheckResponse checks the API response for errors, and returns them if present.
@@ -144,7 +161,28 @@ func CheckResponse(req *http.Request, resp *http.Response) error {
 		return nil
 	}
 	dump, _ := httputil.DumpRequest(req, true)
-	errorData := &ErrorData{Response: resp, RequestDump: string(dump)}
+	errorData := &ErrorData{response: resp, requestDump: string(dump)}
 	_ = json.NewDecoder(resp.Body).Decode(errorData)
 	return errorData
+}
+
+// IsError allows to check if err is a specific error codes returned by the eBay API.
+//
+// eBay API docs: https://developer.ebay.com/devzone/xml/docs/Reference/ebay/Errors/errormessages.htm
+func IsError(err error, codes ...int) bool {
+	if err == nil {
+		return false
+	}
+	errData, ok := err.(*ErrorData)
+	if !ok {
+		return false
+	}
+	for _, e := range errData.Errors {
+		for _, code := range codes {
+			if e.ErrorID == code {
+				return true
+			}
+		}
+	}
+	return false
 }

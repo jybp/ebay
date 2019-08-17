@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -45,8 +44,9 @@ func TestAuction(t *testing.T) {
 		t.SkipNow()
 	}
 
-	// Manually create an auction in the sandbox and copy/paste the url:
-	const auctionURL = "https://www.sandbox.ebay.com/itm/110439278158"
+	// Manually create an auction in the sandbox and copy/paste the url.
+	// Auctions can't be created using the rest api (yet?).
+	const auctionURL = "https://www.sandbox.ebay.com/itm/110440008951"
 
 	ctx := context.Background()
 
@@ -80,7 +80,7 @@ func TestAuction(t *testing.T) {
 		t.Fatalf("item %s is not an auction. BuyingOptions are: %+v", it.ItemID, it.BuyingOptions)
 	}
 	if time.Now().UTC().After(it.ItemEndDate) {
-		// t.Fatalf("item %s end date has been reached. ItemEndDate is: %s", it.ItemID, it.ItemEndDate.String())
+		t.Fatalf("item %s end date has been reached. ItemEndDate is: %s", it.ItemID, it.ItemEndDate.String())
 	}
 	t.Logf("item %s UniqueBidderCount:%d minimumBidPrice: %+v currentPriceToBid: %+v\n", it.ItemID, it.UniqueBidderCount, it.MinimumPriceToBid, it.CurrentBidPrice)
 
@@ -92,7 +92,6 @@ func TestAuction(t *testing.T) {
 	}
 	state := url.QueryEscape(string(b))
 	authCodeC := make(chan string)
-	var expiresIn time.Duration
 	http.HandleFunc("/accept", func(rw http.ResponseWriter, r *http.Request) {
 		actualState, err := url.QueryUnescape(r.URL.Query().Get("state"))
 		if err != nil {
@@ -104,12 +103,6 @@ func TestAuction(t *testing.T) {
 			return
 		}
 		code := r.URL.Query().Get("code")
-		expiresInSeconds, err := strconv.Atoi(r.URL.Query().Get("expires_in"))
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("invalid expires_in: %+v", err), http.StatusBadRequest)
-			return
-		}
-		expiresIn = time.Second * time.Duration(expiresInSeconds)
 		authCodeC <- code
 		t.Logf("The authorization code is %s.\n", code)
 		t.Logf("The authorization code will expire in %s seconds.\n", r.URL.Query().Get("expires_in"))
@@ -146,18 +139,13 @@ func TestAuction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Force token regen.
-
-	// tok.Expiry = time.Now().Add(-time.Hour * 24) // not working?
-
-	fmt.Printf("Sleeping %v so token expires\n", expiresIn)
-	time.Sleep(expiresIn + time.Second*5)
-
 	client = ebay.NewSandboxClient(oauth2.NewClient(ctx, tokensource.New(oauthConf.TokenSource(ctx, tok))))
 
-	bidding, err := client.Buy.Offer.GetBidding(ctx, it.ItemID, ebay.BuyMarketplaceUSA)
-	if err != nil {
-		t.Fatalf("%+v", err)
+	_, err = client.Buy.Offer.GetBidding(ctx, it.ItemID, ebay.BuyMarketplaceUSA)
+	if !ebay.IsError(err, ebay.ErrGetBiddingNoBiddingActivity) {
+		t.Logf("Expected ErrNoBiddingActivity, got %+v.", err)
 	}
-	t.Logf("item %s bidding: %+v\n", it.ItemID, bidding)
+
+	// err := client.Buy.Offer.PlaceProxyBid(ctx)
+
 }

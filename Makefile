@@ -4,4 +4,4 @@ test:
 
 .PHONY: integration
 integration:
-	go test -count=1 -v -run "Auction" ./test/integration -integration=true
+	go test -count=1 -v -run "Auction" ./test/integration -integration=true -timeout=999999s

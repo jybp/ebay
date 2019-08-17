@@ -88,16 +88,20 @@ func (c *Client) NewRequest(method, url string, body interface{}, opts ...Opt) (
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	var buf io.ReadWriter
+	var bodyR io.Reader
 	if body != nil {
-		buf = new(bytes.Buffer)
+		buf := new(bytes.Buffer)
 		enc := json.NewEncoder(buf)
 		enc.SetEscapeHTML(false)
 		if err := enc.Encode(body); err != nil {
 			return nil, err
 		}
+		b := buf.Bytes()
+		print("body:" + string(b)) // TODO
+		bodyR = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(method, u.String(), buf)
+
+	req, err := http.NewRequest(method, u.String(), bodyR)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -152,7 +156,7 @@ type ErrorData struct {
 }
 
 func (e *ErrorData) Error() string {
-	return fmt.Sprintf("%d %s: %+v", e.response.StatusCode, e.requestDump, e.Errors)
+	return fmt.Sprintf("%d\n%s\n%+v", e.response.StatusCode, e.requestDump, e.Errors)
 }
 
 // CheckResponse checks the API response for errors, and returns them if present.
@@ -166,7 +170,7 @@ func CheckResponse(req *http.Request, resp *http.Response) error {
 	return errorData
 }
 
-// IsError allows to check if err is a specific error codes returned by the eBay API.
+// IsError allows to check if err contains specific error codes returned by the eBay API.
 //
 // eBay API docs: https://developer.ebay.com/devzone/xml/docs/Reference/ebay/Errors/errormessages.htm
 func IsError(err error, codes ...int) bool {

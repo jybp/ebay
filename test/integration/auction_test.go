@@ -9,21 +9,22 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/jybp/ebay"
-	"github.com/jybp/ebay/tokensource"
 	"golang.org/x/oauth2"
-	oclientcredentials "golang.org/x/oauth2/clientcredentials"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 var (
 	integration  bool
 	clientID     string
 	clientSecret string
+	auctionURL   string
 )
 
 func init() {
@@ -34,8 +35,10 @@ func init() {
 	}
 	clientID = os.Getenv("SANDBOX_CLIENT_ID")
 	clientSecret = os.Getenv("SANDBOX_CLIENT_SECRET")
-	if clientID == "" || clientSecret == "" {
-		panic("No SANDBOX_CLIENT_ID or SANDBOX_CLIENT_SECRET. Tests won't run.")
+	// You have to manually create an auction in the sandbox. Auctions can't be created using the rest api (yet?).
+	auctionURL = os.Getenv("SANDOX_AUCTION_URL")
+	if clientID == "" || clientSecret == "" || auctionURL == "" {
+		panic("Please set SANDBOX_CLIENT_ID, SANDBOX_CLIENT_SECRET and SANDOX_AUCTION_URL.")
 	}
 }
 
@@ -44,20 +47,16 @@ func TestAuction(t *testing.T) {
 		t.SkipNow()
 	}
 
-	// Manually create an auction in the sandbox and copy/paste the url.
-	// Auctions can't be created using the rest api (yet?).
-	const auctionURL = "https://www.sandbox.ebay.com/itm/110440008951"
-
 	ctx := context.Background()
 
-	conf := oclientcredentials.Config{
+	conf := clientcredentials.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		TokenURL:     "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
 		Scopes:       []string{"https://api.ebay.com/oauth/api_scope"},
 	}
 
-	client := ebay.NewSandboxClient(oauth2.NewClient(ctx, tokensource.New(conf.TokenSource(ctx))))
+	client := ebay.NewSandboxClient(oauth2.NewClient(ctx, ebay.TokenSource(conf.TokenSource(ctx))))
 
 	lit, err := client.Buy.Browse.GetItemByLegacyID(ctx, auctionURL[strings.LastIndex(auctionURL, "/")+1:])
 	if err != nil {
@@ -83,8 +82,6 @@ func TestAuction(t *testing.T) {
 		t.Fatalf("item %s end date has been reached. ItemEndDate is: %s", it.ItemID, it.ItemEndDate.String())
 	}
 	t.Logf("item %s UniqueBidderCount:%d minimumBidPrice: %+v currentPriceToBid: %+v\n", it.ItemID, it.UniqueBidderCount, it.MinimumPriceToBid, it.CurrentBidPrice)
-
-	// Setup oauth server.
 
 	b := make([]byte, 16)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
@@ -139,13 +136,32 @@ func TestAuction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client = ebay.NewSandboxClient(oauth2.NewClient(ctx, tokensource.New(oauthConf.TokenSource(ctx, tok))))
+	client = ebay.NewSandboxClient(oauth2.NewClient(ctx, ebay.TokenSource(oauthConf.TokenSource(ctx, tok))))
 
-	_, err = client.Buy.Offer.GetBidding(ctx, it.ItemID, ebay.BuyMarketplaceUSA)
-	if !ebay.IsError(err, ebay.ErrGetBiddingNoBiddingActivity) {
-		t.Logf("Expected ErrNoBiddingActivity, got %+v.", err)
+	bid, err := client.Buy.Offer.GetBidding(ctx, it.ItemID, ebay.BuyMarketplaceUSA)
+	if err != nil && !ebay.IsError(err, ebay.ErrGetBiddingNoBiddingActivity) {
+		t.Fatalf("Expected error code %d, got %+v.", ebay.ErrGetBiddingNoBiddingActivity, err)
 	}
 
-	// err := client.Buy.Offer.PlaceProxyBid(ctx)
+	var bidValue, bidCurrency string
+	if len(bid.SuggestedBidAmounts) > 0 {
+		bidValue = bid.SuggestedBidAmounts[0].Value
+		bidCurrency = bid.SuggestedBidAmounts[0].Currency
+	} else {
+		bidValue = it.CurrentBidPrice.Value
+		v, err := strconv.ParseFloat(bidValue, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v += 2
+		bidValue = fmt.Sprintf("%.2f", v)
+		bidCurrency = it.CurrentBidPrice.Currency
+	}
 
+	_, err = client.Buy.Offer.PlaceProxyBid(ctx, it.ItemID, ebay.BuyMarketplaceUSA, bidValue, bidCurrency, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Successfully bid %+v.", bid.SuggestedBidAmounts[0])
 }

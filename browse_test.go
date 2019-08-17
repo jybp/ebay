@@ -28,6 +28,9 @@ func TestGetLegacyItem(t *testing.T) {
 	defer teardown()
 
 	mux.HandleFunc("/buy/browse/v1/item/get_item_by_legacy_id", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			t.Fatalf("expected GET method, got: %s", r.Method)
+		}
 		fmt.Fprintf(w, `{"itemId": "v1|%s|0"}`, r.URL.Query().Get("legacy_item_id"))
 	})
 
@@ -41,6 +44,9 @@ func TestGetCompactItem(t *testing.T) {
 	defer teardown()
 
 	mux.HandleFunc("/buy/browse/v1/item/v1|202117468662|0", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			t.Fatalf("expected GET method, got: %s", r.Method)
+		}
 		fmt.Fprintf(w, `{"itemId": "%s"}`, r.URL.Query().Get("fieldgroups"))
 	})
 
@@ -54,6 +60,9 @@ func TestGettItem(t *testing.T) {
 	defer teardown()
 
 	mux.HandleFunc("/buy/browse/v1/item/v1|202117468662|0", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			t.Fatalf("expected GET method, got: %s", r.Method)
+		}
 		fmt.Fprintf(w, `{"itemId": "%s"}`, r.URL.Query().Get("fieldgroups"))
 	})
 

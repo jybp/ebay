@@ -25,6 +25,7 @@ var (
 	clientID     string
 	clientSecret string
 	auctionURL   string
+	redirectURL  string
 )
 
 func init() {
@@ -35,8 +36,9 @@ func init() {
 	}
 	clientID = os.Getenv("SANDBOX_CLIENT_ID")
 	clientSecret = os.Getenv("SANDBOX_CLIENT_SECRET")
-	if clientID == "" || clientSecret == "" {
-		panic("Please set SANDBOX_CLIENT_ID and SANDBOX_CLIENT_SECRET.")
+	redirectURL = os.Getenv("SANDBOX_REDIRECT_URL")
+	if clientID == "" || clientSecret == "" || redirectURL == "" {
+		panic("Please set SANDBOX_CLIENT_ID, SANDBOX_CLIENT_SECRET and SANDBOX_REDIRECT_URL.")
 	}
 }
 
@@ -53,8 +55,8 @@ func TestAuction(t *testing.T) {
 	conf := clientcredentials.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		TokenURL:     "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
-		Scopes:       []string{"https://api.ebay.com/oauth/api_scope"},
+		TokenURL:     ebay.OAuth20SandboxEndpoint.TokenURL,
+		Scopes:       []string{ebay.ScopeRoot},
 	}
 
 	client := ebay.NewSandboxClient(oauth2.NewClient(ctx, ebay.TokenSource(conf.TokenSource(ctx))))
@@ -114,12 +116,9 @@ func TestAuction(t *testing.T) {
 	oauthConf := oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://auth.sandbox.ebay.com/oauth2/authorize",
-			TokenURL: "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
-		},
-		RedirectURL: "Jean-Baptiste_P-JeanBapt-testgo-cowrprk",
-		Scopes:      []string{"https://api.ebay.com/oauth/api_scope/buy.offer.auction"},
+		Endpoint:     ebay.OAuth20SandboxEndpoint,
+		RedirectURL:  redirectURL,
+		Scopes:       []string{ebay.ScopeBuyOfferAuction},
 	}
 
 	url := oauthConf.AuthCodeURL(state)

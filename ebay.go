@@ -19,6 +19,14 @@ const (
 	sandboxBaseURL = "https://api.sandbox.ebay.com/"
 )
 
+// Some eBay API scopes.
+//
+// eBay API docs: https://developer.ebay.com/api-docs/static/oauth-scopes.html
+const (
+	ScopeRoot            = "https://api.ebay.com/oauth/api_scope"
+	ScopeBuyOfferAuction = "https://api.ebay.com/oauth/api_scope/buy.offer.auction"
+)
+
 // BuyAPI regroups the eBay Buy APIs.
 //
 // eBay API docs: https://developer.ebay.com/api-docs/buy/static/buy-landing.html

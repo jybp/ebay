@@ -88,20 +88,17 @@ func (c *Client) NewRequest(method, url string, body interface{}, opts ...Opt) (
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	var bodyR io.Reader
+	var buf io.ReadWriter
 	if body != nil {
-		buf := new(bytes.Buffer)
+		buf = new(bytes.Buffer)
 		enc := json.NewEncoder(buf)
 		enc.SetEscapeHTML(false)
 		if err := enc.Encode(body); err != nil {
 			return nil, err
 		}
-		b := buf.Bytes()
-		print("body:" + string(b)) // TODO
-		bodyR = bytes.NewReader(b)
 	}
 
-	req, err := http.NewRequest(method, u.String(), bodyR)
+	req, err := http.NewRequest(method, u.String(), buf)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

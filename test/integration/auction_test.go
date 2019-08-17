@@ -35,10 +35,8 @@ func init() {
 	}
 	clientID = os.Getenv("SANDBOX_CLIENT_ID")
 	clientSecret = os.Getenv("SANDBOX_CLIENT_SECRET")
-	// You have to manually create an auction in the sandbox. Auctions can't be created using the rest api (yet?).
-	auctionURL = os.Getenv("SANDOX_AUCTION_URL")
-	if clientID == "" || clientSecret == "" || auctionURL == "" {
-		panic("Please set SANDBOX_CLIENT_ID, SANDBOX_CLIENT_SECRET and SANDOX_AUCTION_URL.")
+	if clientID == "" || clientSecret == "" {
+		panic("Please set SANDBOX_CLIENT_ID and SANDBOX_CLIENT_SECRET.")
 	}
 }
 
@@ -48,6 +46,9 @@ func TestAuction(t *testing.T) {
 	}
 
 	ctx := context.Background()
+
+	// You have to manually create an auction in the sandbox. Auctions can't be created using the rest api (yet?).
+	auctionURL = os.Getenv("SANDOX_AUCTION_URL")
 
 	conf := clientcredentials.Config{
 		ClientID:     clientID,
@@ -65,9 +66,6 @@ func TestAuction(t *testing.T) {
 	it, err := client.Buy.Browse.GetItem(ctx, lit.ItemID)
 	if err != nil {
 		t.Fatalf("%+v", err)
-	}
-	if testing.Verbose() {
-		t.Logf("item: %+v\n", it)
 	}
 	isAuction := false
 	for _, opt := range it.BuyingOptions {
@@ -89,7 +87,8 @@ func TestAuction(t *testing.T) {
 	}
 	state := url.QueryEscape(string(b))
 	authCodeC := make(chan string)
-	http.HandleFunc("/accept", func(rw http.ResponseWriter, r *http.Request) {
+	mux := setupTLS()
+	mux.HandleFunc("/accept", func(rw http.ResponseWriter, r *http.Request) {
 		actualState, err := url.QueryUnescape(r.URL.Query().Get("state"))
 		if err != nil {
 			http.Error(rw, fmt.Sprintf("invalid state: %+v", err), http.StatusBadRequest)
@@ -105,15 +104,12 @@ func TestAuction(t *testing.T) {
 		t.Logf("The authorization code will expire in %s seconds.\n", r.URL.Query().Get("expires_in"))
 		rw.Write([]byte("Accept. You can safely close this tab."))
 	})
-	http.HandleFunc("/policy", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/policy", func(rw http.ResponseWriter, r *http.Request) {
 		rw.Write([]byte("eBay Sniper Policy"))
 	})
-	http.HandleFunc("/decline", func(rw http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/decline", func(rw http.ResponseWriter, r *http.Request) {
 		rw.Write([]byte("Decline. You can safely close this tab."))
 	})
-	go func() {
-		t.Fatal(http.ListenAndServe(":52125", nil))
-	}()
 
 	oauthConf := oauth2.Config{
 		ClientID:     clientID,

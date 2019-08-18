@@ -14,9 +14,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// eBay URLs.
 const (
-	baseURL        = "https://api.ebay.com/"
-	sandboxBaseURL = "https://api.sandbox.ebay.com/"
+	BaseURL        = "https://api.ebay.com/"
+	SandboxBaseURL = "https://api.sandbox.ebay.com/"
 )
 
 // Some eBay API scopes.
@@ -47,13 +48,13 @@ type Client struct {
 // NewClient returns a new eBay API client.
 // If a nil httpClient is provided, http.DefaultClient will be used.
 func NewClient(httpclient *http.Client) *Client {
-	return newClient(httpclient, baseURL)
+	return newClient(httpclient, BaseURL)
 }
 
 // NewSandboxClient returns a new eBay sandbox API client.
 // If a nil httpClient is provided, http.DefaultClient will be used.
 func NewSandboxClient(httpclient *http.Client) *Client {
-	return newClient(httpclient, sandboxBaseURL)
+	return newClient(httpclient, SandboxBaseURL)
 }
 
 // NewCustomClient returns a new custom eBay API client.
@@ -118,12 +119,13 @@ func (c *Client) NewRequest(method, url string, body interface{}, opts ...Opt) (
 
 // Do sends an API request and stores the JSON decoded value into v.
 func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) error {
+	dump, _ := httputil.DumpRequest(req, true)
 	resp, err := c.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	defer resp.Body.Close()
-	if err := CheckResponse(req, resp); err != nil {
+	if err := CheckResponse(req, resp, string(dump)); err != nil {
 		return err
 	}
 	if v == nil {
@@ -165,12 +167,11 @@ func (e *ErrorData) Error() string {
 }
 
 // CheckResponse checks the API response for errors, and returns them if present.
-func CheckResponse(req *http.Request, resp *http.Response) error {
+func CheckResponse(req *http.Request, resp *http.Response, dump string) error {
 	if s := resp.StatusCode; 200 <= s && s < 300 {
 		return nil
 	}
-	dump, _ := httputil.DumpRequest(req, true)
-	errorData := &ErrorData{response: resp, requestDump: string(dump)}
+	errorData := &ErrorData{response: resp, requestDump: dump}
 	_ = json.NewDecoder(resp.Body).Decode(errorData)
 	return errorData
 }

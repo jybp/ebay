@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"testing"
 
 	"github.com/jybp/ebay"
@@ -43,23 +42,17 @@ func TestPlaceProxyBid(t *testing.T) {
 		if r.Method != "POST" {
 			t.Fatalf("expected POST method, got: %s", r.Method)
 		}
-		marketplaceID := r.Header.Get("X-EBAY-C-MARKETPLACE-ID")
+		assert.Equal(t, ebay.BuyMarketplaceUSA, r.Header.Get("X-EBAY-C-MARKETPLACE-ID"))
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			t.Fatalf("%+v", err)
-			http.Error(w, err.Error(), 500)
-			return
 		}
-		escapedBody := strconv.Quote(string(body))
-		escapedBody = escapedBody[1 : len(escapedBody)-1]
-		fmt.Fprintf(w, `{"proxyBidId": "%s_%s"}`, escapedBody, marketplaceID)
+		assert.Equal(t, `{"maxAmount":{"currency":"USD","value":"1.23"},"userConsent":{"adultOnlyItem":true}}
+`, string(body))
+		fmt.Fprintf(w, `{"proxyBidId": "123"}`)
 	})
 
-	bid, err := client.Buy.Offer.PlaceProxyBid(context.Background(), "v1|202117468662|0", ebay.BuyMarketplaceUSA, "1.23", "USD", false)
+	bid, err := client.Buy.Offer.PlaceProxyBid(context.Background(), "v1|202117468662|0", ebay.BuyMarketplaceUSA, "1.23", "USD", true)
 	assert.Nil(t, err)
-	assert.Equal(t, "{\"maxAmount\":{\"currency\":\"USD\",\"value\":\"1.23\"}}\n_EBAY_US", bid.ProxyBidID)
-
-	bid, err = client.Buy.Offer.PlaceProxyBid(context.Background(), "v1|202117468662|0", ebay.BuyMarketplaceUSA, "1.23", "USD", true)
-	assert.Nil(t, err)
-	assert.Equal(t, "{\"maxAmount\":{\"currency\":\"USD\",\"value\":\"1.23\"},\"userConsent\":{\"adultOnlyItem\":true}}\n_EBAY_US", bid.ProxyBidID)
+	assert.Equal(t, `123`, bid.ProxyBidID)
 }

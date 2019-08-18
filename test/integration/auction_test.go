@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -137,26 +136,5 @@ func TestAuction(t *testing.T) {
 	if err != nil && !ebay.IsError(err, ebay.ErrGetBiddingNoBiddingActivity) {
 		t.Fatalf("Expected error code %d, got %+v.", ebay.ErrGetBiddingNoBiddingActivity, err)
 	}
-
-	var bidValue, bidCurrency string
-	if len(bid.SuggestedBidAmounts) > 0 {
-		bidValue = bid.SuggestedBidAmounts[0].Value
-		bidCurrency = bid.SuggestedBidAmounts[0].Currency
-	} else {
-		bidValue = it.CurrentBidPrice.Value
-		v, err := strconv.ParseFloat(bidValue, 64)
-		if err != nil {
-			t.Fatal(err)
-		}
-		v += 2
-		bidValue = fmt.Sprintf("%.2f", v)
-		bidCurrency = it.CurrentBidPrice.Currency
-	}
-
-	_, err = client.Buy.Offer.PlaceProxyBid(ctx, it.ItemID, ebay.BuyMarketplaceUSA, bidValue, bidCurrency, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("Successfully bid %+v.", bid.SuggestedBidAmounts[0])
+	t.Logf("bidding: %+v", bid)
 }

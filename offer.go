@@ -120,8 +120,6 @@ const (
 //
 // eBay API docs: https://developer.ebay.com/api-docs/buy/offer/resources/bidding/methods/placeProxyBid
 func (s *OfferService) PlaceProxyBid(ctx context.Context, itemID, marketplaceID, maxAmount, currency string, userConsentAdultOnlyItem bool, opts ...Opt) (ProxyBid, error) {
-	u := fmt.Sprintf("buy/offer/v1_beta/bidding/%s/place_proxy_bid", itemID)
-	opts = append(opts, OptBuyMarketplace(marketplaceID))
 	type userConsent struct {
 		AdultOnlyItem bool `json:"adultOnlyItem,omitempty"`
 	}
@@ -139,6 +137,8 @@ func (s *OfferService) PlaceProxyBid(ctx context.Context, itemID, marketplaceID,
 	if userConsentAdultOnlyItem {
 		pl.UserConsent = &userConsent{userConsentAdultOnlyItem}
 	}
+	u := fmt.Sprintf("buy/offer/v1_beta/bidding/%s/place_proxy_bid", itemID)
+	opts = append(opts, OptBuyMarketplace(marketplaceID))
 	req, err := s.client.NewRequest(http.MethodPost, u, &pl, opts...)
 	if err != nil {
 		return ProxyBid{}, err

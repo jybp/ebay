@@ -38,7 +38,7 @@ func TestNewRequest(t *testing.T) {
 
 func TestCheckResponseNoError(t *testing.T) {
 	resp := &http.Response{StatusCode: 200}
-	assert.Nil(t, ebay.CheckResponse(&http.Request{}, resp))
+	assert.Nil(t, ebay.CheckResponse(&http.Request{}, resp, ""))
 }
 
 func TestCheckResponse(t *testing.T) {
@@ -67,7 +67,7 @@ func TestCheckResponse(t *testing.T) {
 		]
 	}`
 	resp := &http.Response{StatusCode: 400, Body: ioutil.NopCloser(bytes.NewBufferString(body))}
-	err, ok := ebay.CheckResponse(&http.Request{URL: &url.URL{}}, resp).(*ebay.ErrorData)
+	err, ok := ebay.CheckResponse(&http.Request{URL: &url.URL{}}, resp, "").(*ebay.ErrorData)
 	assert.True(t, ok)
 	assert.Equal(t, 1, len(err.Errors))
 	assert.Equal(t, 15008, err.Errors[0].ErrorID)

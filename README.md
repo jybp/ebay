@@ -22,9 +22,10 @@ An example for the [client credentials grant flow](https://developer.ebay.com/ap
 
 ```go
 import (
-    "context"
-    "golang.org/x/oauth2"
+	"context"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+	"github.com/jybp/ebay"
 )
 
 func main() {
@@ -33,12 +34,13 @@ func main() {
 		ClientSecret: "your client secret",
 		TokenURL:     ebay.OAuth20SandboxEndpoint.TokenURL,
 		Scopes:       []string{ebay.ScopeRoot /* your scopes */},
-    }
-    tc := oauth2.NewClient(context.Background(), ebay.TokenSource(cfg.TokenSource(ctx)))
-    client := ebay.NewSandboxClient(tc)
+	}
+	ctx := context.Background()
+	tc := oauth2.NewClient(ctx, ebay.TokenSource(cfg.TokenSource(ctx)))
+	client := ebay.NewSandboxClient(tc)
 
-    // Get an item detail.
-    result, err := client.Buy.Browse.GetItem(context.Background(), "v1|123456789012|0")
+	// Get an item detail.
+	result, err := client.Buy.Browse.GetItem(ctx, "v1|123456789012|0")
 }
 ```
 
@@ -47,13 +49,13 @@ An example for the [authorization code grant flow](https://developer.ebay.com/ap
 
 ```go
 import (
-    "context"
-    "golang.org/x/oauth2"
-	"golang.org/x/oauth2/clientcredentials"
+	"context"
+	"golang.org/x/oauth2"
+	"github.com/jybp/ebay"
 )
 
 func main() {
-    cfg := oauth2.Config{
+	cfg := oauth2.Config{
 		ClientID:     "your client id",
 		ClientSecret: "your client id",
 		Endpoint:     ebay.OAuth20SandboxEndpoint,
@@ -62,18 +64,19 @@ func main() {
 	}
 
 	url := cfg.AuthCodeURL(state)
-    fmt.Printf("Visit the URL: %v\n", url)
-    
+	fmt.Printf("Visit the URL: %v\n", url)
+	
 	var authCode string /* Retrieve the authorization code. */
 
+	ctx := context.Background()
 	tok, err := oauthConf.Exchange(ctx, authCode)
 	if err != nil {
 		panic(err)
 	}
 	client := ebay.NewSandboxClient(oauth2.NewClient(ctx, ebay.TokenSource(cfg.TokenSource(ctx, tok))))
 
-    // Get bidding for the authenticated user.
-    bidding, err := client.Buy.Offer.GetBidding(ctx, "v1|123456789012|0", ebay.BuyMarketplaceUSA)
+	// Get bidding for the authenticated user.
+	bidding, err := client.Buy.Offer.GetBidding(ctx, "v1|123456789012|0", ebay.BuyMarketplaceUSA)
 }
 ```
 

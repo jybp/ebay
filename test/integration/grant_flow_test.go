@@ -6,12 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/jybp/ebay"
@@ -23,7 +21,6 @@ var (
 	integration  bool
 	clientID     string
 	clientSecret string
-	auctionURL   string
 	redirectURL  string
 )
 
@@ -35,21 +32,28 @@ func init() {
 	}
 	clientID = os.Getenv("SANDBOX_CLIENT_ID")
 	clientSecret = os.Getenv("SANDBOX_CLIENT_SECRET")
-	redirectURL = os.Getenv("SANDBOX_REDIRECT_URL")
+
+	// Your accept redirect URL should be setup to redirect to https://localhost:52125/accept
+	redirectURL = os.Getenv("SANDBOX_RU_NAME")
+
 	if clientID == "" || clientSecret == "" || redirectURL == "" {
 		panic("Please set SANDBOX_CLIENT_ID, SANDBOX_CLIENT_SECRET and SANDBOX_REDIRECT_URL.")
 	}
 }
 
-func TestAuction(t *testing.T) {
+// TestGrantFlows is a verbose integration test that checks the client credentials grant flow as well as the
+// authorization code grant flow are working properly on the eBay sandbox.
+// Make sure to set the various environment variables required.
+func TestGrantFlows(t *testing.T) {
 	if !integration {
 		t.SkipNow()
 	}
 
-	ctx := context.Background()
+	// You have to manually create an auction in the sandbox and retrieve its URL.
+	// Auctions can't be created using the rest api (yet?).
+	auctionURL := os.Getenv("SANDOX_AUCTION_URL")
 
-	// You have to manually create an auction in the sandbox. Auctions can't be created using the rest api (yet?).
-	auctionURL = os.Getenv("SANDOX_AUCTION_URL")
+	ctx := context.Background()
 
 	conf := clientcredentials.Config{
 		ClientID:     clientID,
@@ -77,9 +81,7 @@ func TestAuction(t *testing.T) {
 	if !isAuction {
 		t.Fatalf("item %s is not an auction. BuyingOptions are: %+v", it.ItemID, it.BuyingOptions)
 	}
-	if time.Now().UTC().After(it.ItemEndDate) {
-		t.Fatalf("item %s end date has been reached. ItemEndDate is: %s", it.ItemID, it.ItemEndDate.String())
-	}
+
 	t.Logf("item %s UniqueBidderCount:%d minimumBidPrice: %+v currentPriceToBid: %+v\n", it.ItemID, it.UniqueBidderCount, it.MinimumPriceToBid, it.CurrentBidPrice)
 
 	b := make([]byte, 16)
@@ -87,30 +89,11 @@ func TestAuction(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 	state := url.QueryEscape(string(b))
-	authCodeC := make(chan string)
-	mux := setupTLS()
-	mux.HandleFunc("/accept", func(rw http.ResponseWriter, r *http.Request) {
-		actualState, err := url.QueryUnescape(r.URL.Query().Get("state"))
-		if err != nil {
-			http.Error(rw, fmt.Sprintf("invalid state: %+v", err), http.StatusBadRequest)
-			return
-		}
-		if string(actualState) != state {
-			http.Error(rw, fmt.Sprintf("invalid state:\nexpected:%s\nactual:%s", state, string(actualState)), http.StatusBadRequest)
-			return
-		}
-		code := r.URL.Query().Get("code")
-		authCodeC <- code
-		t.Logf("The authorization code is %s.\n", code)
-		t.Logf("The authorization code will expire in %s seconds.\n", r.URL.Query().Get("expires_in"))
-		rw.Write([]byte("Accept. You can safely close this tab."))
-	})
-	mux.HandleFunc("/policy", func(rw http.ResponseWriter, r *http.Request) {
-		rw.Write([]byte("eBay Sniper Policy"))
-	})
-	mux.HandleFunc("/decline", func(rw http.ResponseWriter, r *http.Request) {
-		rw.Write([]byte("Decline. You can safely close this tab."))
-	})
+	serve, teardown, authCodeC, err := oauthServer("ebay test", ":52125", state)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	go func() { serve() }()
 
 	oauthConf := oauth2.Config{
 		ClientID:     clientID,
@@ -124,6 +107,7 @@ func TestAuction(t *testing.T) {
 	fmt.Printf("Visit the URL: %v\n", url)
 
 	authCode := <-authCodeC
+	defer func() { teardown() }()
 
 	tok, err := oauthConf.Exchange(ctx, authCode)
 	if err != nil {

@@ -58,7 +58,7 @@ func TestGetCompactItem(t *testing.T) {
 	assert.Equal(t, "itemId", item.ItemID)
 }
 
-func TestGettItem(t *testing.T) {
+func TestGetItem(t *testing.T) {
 	client, mux, teardown := setup(t)
 	defer teardown()
 

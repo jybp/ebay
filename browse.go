@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -546,4 +547,144 @@ func (s *BrowseService) CheckCompatibility(ctx context.Context, itemID, marketpl
 	}
 	var c Compatibility
 	return c, s.client.Do(ctx, req, &c)
+}
+
+// Search represents the result of an eBay search.
+type Search struct {
+	Href          string `json:"href"`
+	Total         int    `json:"total"`
+	Next          string `json:"next"`
+	Limit         int    `json:"limit"`
+	Offset        int    `json:"offset"`
+	ItemSummaries []struct {
+		ItemID string `json:"itemId"`
+		Title  string `json:"title"`
+		Image  struct {
+			ImageURL string `json:"imageUrl"`
+		} `json:"image"`
+		Price struct {
+			Value    string `json:"value"`
+			Currency string `json:"currency"`
+		} `json:"price"`
+		ItemHref string `json:"itemHref"`
+		Seller   struct {
+			Username           string `json:"username"`
+			FeedbackPercentage string `json:"feedbackPercentage"`
+			FeedbackScore      int    `json:"feedbackScore"`
+		} `json:"seller"`
+		MarketingPrice struct {
+			OriginalPrice struct {
+				Value    string `json:"value"`
+				Currency string `json:"currency"`
+			} `json:"originalPrice"`
+			DiscountPercentage string `json:"discountPercentage"`
+			DiscountAmount     struct {
+				Value    string `json:"value"`
+				Currency string `json:"currency"`
+			} `json:"discountAmount"`
+		} `json:"marketingPrice"`
+		Condition       string `json:"condition"`
+		ConditionID     string `json:"conditionId"`
+		ThumbnailImages []struct {
+			ImageURL string `json:"imageUrl"`
+		} `json:"thumbnailImages"`
+		ShippingOptions []struct {
+			ShippingCostType string `json:"shippingCostType"`
+			ShippingCost     struct {
+				Value    string `json:"value"`
+				Currency string `json:"currency"`
+			} `json:"shippingCost"`
+		} `json:"shippingOptions"`
+		BuyingOptions   []string `json:"buyingOptions"`
+		CurrentBidPrice struct {
+			Value    string `json:"value"`
+			Currency string `json:"currency"`
+		} `json:"currentBidPrice"`
+		Epid         string `json:"epid"`
+		ItemWebURL   string `json:"itemWebUrl"`
+		ItemLocation struct {
+			PostalCode string `json:"postalCode"`
+			Country    string `json:"country"`
+		} `json:"itemLocation"`
+		Categories []struct {
+			CategoryID string `json:"categoryId"`
+		} `json:"categories"`
+		AdditionalImages []struct {
+			ImageURL string `json:"imageUrl"`
+		} `json:"additionalImages"`
+		AdultOnly bool `json:"adultOnly"`
+	} `json:"itemSummaries"`
+}
+
+func optSearch(param string) func(v string) func(*http.Request) {
+	return func(v string) func(*http.Request) {
+		return func(req *http.Request) {
+			query := req.URL.Query()
+			query.Add(param, v)
+			req.URL.RawQuery = query.Encode()
+		}
+	}
+}
+
+// Several query parameters to use with the Search method.
+
+func OptBrowseSearch(v string) func(*http.Request) {
+	return optSearch("q")(v)
+}
+
+func OptBrowseSearchGtin(v string) func(*http.Request) {
+	return optSearch("gtin")(v)
+}
+
+func OptBrowseSearchCharityIDs(v string) func(*http.Request) {
+	return optSearch("charity_ids")(v)
+}
+
+func OptBrowseSearchFieldgroups(v string) func(*http.Request) {
+	return optSearch("fieldgroups")(v)
+}
+
+func OptBrowseSearchCompatibilityFilter(v string) func(*http.Request) {
+	return optSearch("compatibility_filter")(v)
+}
+
+func OptBrowseSearchCategoryID(v string) func(*http.Request) {
+	return optSearch("category_ids")(v)
+}
+
+func OptBrowseSearchFilter(v string) func(*http.Request) {
+	return optSearch("filter")(v)
+}
+
+func OptBrowseSearchSort(v string) func(*http.Request) {
+	return optSearch("sort")(v)
+}
+
+func OptBrowseSearchLimit(limit int) func(*http.Request) {
+	return optSearch("limit")(strconv.Itoa(limit))
+}
+
+func OptBrowseSearchOffset(offset int) func(*http.Request) {
+	return optSearch("offset")(strconv.Itoa(offset))
+}
+
+func OptBrowseSearchAspectFilter(v string) func(*http.Request) {
+	return optSearch("aspect_filter")(v)
+}
+
+func OptBrowseSearchEPID(epid int) func(*http.Request) {
+	return optSearch("epid")(strconv.Itoa(epid))
+}
+
+// Search searches for eBay items.
+//
+// eBay API docs: https://developer.ebay.com/api-docs/buy/browse/resources/item_summary/methods/search
+func (s *BrowseService) Search(ctx context.Context, opts ...Opt) (Search, error) {
+	u := "buy/browse/v1/item_summary/search"
+	req, err := s.client.NewRequest(http.MethodGet, u, nil, opts...)
+	if err != nil {
+		return Search{}, err
+	}
+	var search Search
+	return search, s.client.Do(ctx, req, &search)
 }

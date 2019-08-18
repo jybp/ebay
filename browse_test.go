@@ -32,12 +32,13 @@ func TestGetLegacyItem(t *testing.T) {
 		if r.Method != "GET" {
 			t.Fatalf("expected GET method, got: %s", r.Method)
 		}
-		fmt.Fprintf(w, `{"itemId": "v1|%s|0"}`, r.URL.Query().Get("legacy_item_id"))
+		assert.Equal(t, "202117468662", r.URL.Query().Get("legacy_item_id"))
+		fmt.Fprintf(w, `{"itemId": "itemId"}`)
 	})
 
 	item, err := client.Buy.Browse.GetItemByLegacyID(context.Background(), "202117468662")
 	assert.Nil(t, err)
-	assert.Equal(t, "v1|202117468662|0", item.ItemID)
+	assert.Equal(t, "itemId", item.ItemID)
 }
 
 func TestGetCompactItem(t *testing.T) {
@@ -48,12 +49,13 @@ func TestGetCompactItem(t *testing.T) {
 		if r.Method != "GET" {
 			t.Fatalf("expected GET method, got: %s", r.Method)
 		}
-		fmt.Fprintf(w, `{"itemId": "%s"}`, r.URL.Query().Get("fieldgroups"))
+		assert.Equal(t, "COMPACT", r.URL.Query().Get("fieldgroups"))
+		fmt.Fprintf(w, `{"itemId": "itemId"}`)
 	})
 
 	item, err := client.Buy.Browse.GetCompactItem(context.Background(), "v1|202117468662|0")
 	assert.Nil(t, err)
-	assert.Equal(t, "COMPACT", item.ItemID)
+	assert.Equal(t, "itemId", item.ItemID)
 }
 
 func TestGettItem(t *testing.T) {
@@ -64,12 +66,13 @@ func TestGettItem(t *testing.T) {
 		if r.Method != "GET" {
 			t.Fatalf("expected GET method, got: %s", r.Method)
 		}
-		fmt.Fprintf(w, `{"itemId": "%s"}`, r.URL.Query().Get("fieldgroups"))
+		assert.Equal(t, "PRODUCT", r.URL.Query().Get("fieldgroups"))
+		fmt.Fprint(w, `{"itemId": "itemId"}`)
 	})
 
 	item, err := client.Buy.Browse.GetItem(context.Background(), "v1|202117468662|0")
 	assert.Nil(t, err)
-	assert.Equal(t, "PRODUCT", item.ItemID)
+	assert.Equal(t, "itemId", item.ItemID)
 }
 
 func TestGetItemByGroupID(t *testing.T) {
@@ -80,12 +83,13 @@ func TestGetItemByGroupID(t *testing.T) {
 		if r.Method != "GET" {
 			t.Fatalf("expected GET method, got: %s", r.Method)
 		}
-		fmt.Fprintf(w, `{"items": [{"itemId": "%s"}]}`, r.URL.Query().Get("item_group_id"))
+		assert.Equal(t, "151915076499", r.URL.Query().Get("item_group_id"))
+		fmt.Fprint(w, `{"items": [{"itemId": "itemId"}]}`)
 	})
 
 	it, err := client.Buy.Browse.GetItemByGroupID(context.Background(), "151915076499")
 	assert.Nil(t, err)
-	assert.Equal(t, "151915076499", it.Items[0].ItemID)
+	assert.Equal(t, "itemId", it.Items[0].ItemID)
 }
 
 func TestCheckCompatibility(t *testing.T) {
@@ -103,7 +107,7 @@ func TestCheckCompatibility(t *testing.T) {
 		}
 		assert.Equal(t, `{"compatibilityProperties":[{"name":"0","value":"1"},{"name":"2","value":"3"}]}
 `, string(body))
-		fmt.Fprintf(w, `{"compatibilityStatus": "NOT_COMPATIBLE", "warnings": [{"category" : "category"}]}`)
+		fmt.Fprint(w, `{"compatibilityStatus": "NOT_COMPATIBLE", "warnings": [{"category" : "category"}]}`)
 	})
 	compatibilityProperties := []ebay.CompatibilityProperty{
 		{Name: "0", Value: "1"},
@@ -113,4 +117,25 @@ func TestCheckCompatibility(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "NOT_COMPATIBLE", compatibility.CompatibilityStatus)
 	assert.Equal(t, "category", compatibility.Warnings[0].Category)
+}
+
+func TestSearch(t *testing.T) {
+	client, mux, teardown := setup(t)
+	defer teardown()
+
+	mux.HandleFunc("/buy/browse/v1/item_summary/search", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			t.Fatalf("expected GET method, got: %s", r.Method)
+		}
+		assert.Equal(t, "search", r.URL.Query().Get("q"))
+		assert.Equal(t, "2", r.URL.Query().Get("limit"))
+
+		fmt.Fprint(w, `{"href": "href","total":1,"itemSummaries": [{"itemId": "itemId"}]}`)
+	})
+
+	search, err := client.Buy.Browse.Search(context.Background(), ebay.OptBrowseSearch("search"), ebay.OptBrowseSearchLimit(2))
+	assert.Nil(t, err)
+	assert.Equal(t, "href", search.Href)
+	assert.Equal(t, 1, search.Total)
+	assert.Equal(t, "itemId", search.ItemSummaries[0].ItemID)
 }

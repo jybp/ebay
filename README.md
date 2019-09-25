@@ -69,7 +69,7 @@ func main() {
 	var authCode string /* Retrieve the authorization code. */
 
 	ctx := context.Background()
-	tok, err := oauthConf.Exchange(ctx, authCode)
+	tok, err := cfg.Exchange(ctx, authCode)
 	if err != nil {
 		panic(err)
 	}

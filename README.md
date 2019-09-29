@@ -57,7 +57,7 @@ import (
 func main() {
 	cfg := oauth2.Config{
 		ClientID:     "your client id",
-		ClientSecret: "your client id",
+		ClientSecret: "your client secret",
 		Endpoint:     ebay.OAuth20SandboxEndpoint,
 		RedirectURL:  "your eBay Redirect URL name (RuName)",
 		Scopes:       []string{ebay.ScopeBuyOfferAuction /* your scopes */},
